@@ -48,7 +48,7 @@ const routes = [
         meta:{
           icon:"mdi-file-arrow-left-right"
         },
-        component: () => import('@/views/transcationParser.vue')
+        component: () => import('@/views/txHashDetail.vue')
       },
       {
         path:'/contract',

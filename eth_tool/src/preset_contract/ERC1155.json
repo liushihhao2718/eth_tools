@@ -1,5 +1,16 @@
 [
   {
+    "inputs": [
+      {
+        "internalType": "string",
+        "name": "uri_",
+        "type": "string"
+      }
+    ],
+    "stateMutability": "nonpayable",
+    "type": "constructor"
+  },
+  {
     "anonymous": false,
     "inputs": [
       {
@@ -296,7 +307,7 @@
     "inputs": [
       {
         "internalType": "uint256",
-        "name": "id",
+        "name": "",
         "type": "uint256"
       }
     ],

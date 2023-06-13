@@ -1,7 +1,11 @@
 <template>
   <v-container>
     <h1 style="text-align: center">Contract Interaction</h1>
-
+    <p style="margin-top: 15px" v-if="FROM">Address: {{ FROM }}</p>
+    <v-btn variant="tonal" v-else @click="connect()">Connect</v-btn>
+    <v-divider class="my-4"></v-divider>
+    <v-text-field label="Contract Address" v-model="contractAddress"></v-text-field>
+    <v-divider class="my-4"></v-divider>
     <h2>ABI</h2>
     <v-tabs v-model="tab" color="blue" grow>
       <v-tab value="one">Input</v-tab>
@@ -15,29 +19,14 @@
       </v-window-item>
 
       <v-window-item value="two">
-        <v-select
-          v-model="select_preset"
-          :items="presets.map((x) => x[1])"
-          label="Pre defined Contracts"
-        ></v-select>
+        <v-select v-model="select_preset" :items="presets.map((x) => x[1])" label="Pre defined Contracts"></v-select>
         <v-btn variant="tonal" @click="getPreset()"> Format </v-btn>
       </v-window-item>
     </v-window>
     <v-divider :style="{ marginTop: '30px', marginBottom: '30px' }"></v-divider>
-    <v-alert
-      v-if="error_msg"
-      :text="error_msg"
-      color="red-lighten-1"
-      type="error"
-    ></v-alert>
-    <v-expansion-panels
-      v-else-if="parsed_data"
-      :style="{ maxWidth: '1200px', margin: 'auto' }"
-    >
-      <v-expansion-panel
-        v-for="(fragment, index) in parsed_data.table"
-        :key="fragment.format()"
-      >
+    <v-alert v-if="error_msg" :text="error_msg" color="red-lighten-1" type="error"></v-alert>
+    <v-expansion-panels v-else-if="parsed_data" :style="{ maxWidth: '1200px', margin: 'auto' }">
+      <v-expansion-panel v-for="(fragment, index) in parsed_data.table" :key="fragment.format()">
         <v-expansion-panel-title>
           <template v-slot:default="">
             <v-row no-gutters>
@@ -50,7 +39,7 @@
                     {{
                       fragment.inputs
                         .map((i) => `${i.type} ${i.name}`)
-                        .join(",  ")
+                        .join(", ")
                     }}
                   </span>
                 </v-fade-transition>
@@ -59,17 +48,13 @@
           </template>
         </v-expansion-panel-title>
         <v-expansion-panel-text>
-          <v-text-field
-            class="my-2"
-            variant="outlined"
-            v-for="(input, input_i) in fragment.inputs"
-            :key="input.name"
-            v-model="parsed_data.input_data[index][input_i]"
-            hide-details
-            :label="input.name"
-            :placeholder="input.type"
-          ></v-text-field>
-          <v-btn @click="interact(parsed_data.input_data[index])">Run</v-btn>
+          <v-text-field class="my-2" variant="outlined" v-for="(input, input_i) in fragment.inputs" :key="input.name"
+            v-model="parsed_data.input_data[index][input_i]" hide-details :label="input.name"
+            :placeholder="input.type"></v-text-field>
+          <v-btn @click="interact(index, parsed_data.table[index], parsed_data.input_data[index])">Run</v-btn>
+          <v-divider class="my-4"></v-divider>
+          <v-alert v-if="parsed_data.outputs[index]" :text="parsed_data.outputs[index].result"
+            :type="parsed_data.outputs[index].type"></v-alert>
         </v-expansion-panel-text>
       </v-expansion-panel>
     </v-expansion-panels>
@@ -79,8 +64,24 @@
 </template>
 
 <script setup>
-import { Interface } from "ethers";
+import { Contract, ethers, Interface } from "ethers";
 import { ref } from "vue";
+
+
+const contractAddress = ref('0xe7DFd7C53145cf9E68D67c12Cf3D3FEa67a7106f');
+let abi;
+/**
+ * @type {import('ethers').BrowserProvider}
+ */
+let provider;
+const FROM = ref("");
+async function connect() {
+  provider = new ethers.BrowserProvider(window.ethereum);
+  await provider.send("eth_requestAccounts", []);
+  FROM.value = (await provider.getSigner()).address;
+  console.log(FROM.value);
+}
+
 
 const abi_text = ref(
   `[{"constant":false,"inputs":[{"internalType":"address","name":"to","type":"address"},{"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"approve","outputs":[],"payable":false,"stateMutability":"nonpayable","type":"function"},{"constant":false,"inputs":[{"internalType":"address","name":"to","type":"address"},{"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"mint","outputs":[],"payable":false,"stateMutability":"nonpayable","type":"function"},{"constant":false,"inputs":[{"internalType":"address","name":"from","type":"address"},{"internalType":"address","name":"to","type":"address"},{"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"safeTransferFrom","outputs":[],"payable":false,"stateMutability":"nonpayable","type":"function"},{"constant":false,"inputs":[{"internalType":"address","name":"from","type":"address"},{"internalType":"address","name":"to","type":"address"},{"internalType":"uint256","name":"tokenId","type":"uint256"},{"internalType":"bytes","name":"_data","type":"bytes"}],"name":"safeTransferFrom","outputs":[],"payable":false,"stateMutability":"nonpayable","type":"function"},{"constant":false,"inputs":[{"internalType":"address","name":"to","type":"address"},{"internalType":"bool","name":"approved","type":"bool"}],"name":"setApprovalForAll","outputs":[],"payable":false,"stateMutability":"nonpayable","type":"function"},{"constant":false,"inputs":[{"internalType":"address","name":"from","type":"address"},{"internalType":"address","name":"to","type":"address"},{"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"transferFrom","outputs":[],"payable":false,"stateMutability":"nonpayable","type":"function"},{"inputs":[],"payable":false,"stateMutability":"nonpayable","type":"constructor"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"from","type":"address"},{"indexed":true,"internalType":"address","name":"to","type":"address"},{"indexed":true,"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"Transfer","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"owner","type":"address"},{"indexed":true,"internalType":"address","name":"approved","type":"address"},{"indexed":true,"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"Approval","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"owner","type":"address"},{"indexed":true,"internalType":"address","name":"operator","type":"address"},{"indexed":false,"internalType":"bool","name":"approved","type":"bool"}],"name":"ApprovalForAll","type":"event"},{"constant":true,"inputs":[{"internalType":"address","name":"owner","type":"address"}],"name":"balanceOf","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":true,"inputs":[{"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"getApproved","outputs":[{"internalType":"address","name":"","type":"address"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":true,"inputs":[{"internalType":"address","name":"owner","type":"address"},{"internalType":"address","name":"operator","type":"address"}],"name":"isApprovedForAll","outputs":[{"internalType":"bool","name":"","type":"bool"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":true,"inputs":[{"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"ownerOf","outputs":[{"internalType":"address","name":"","type":"address"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":true,"inputs":[{"internalType":"bytes4","name":"interfaceId","type":"bytes4"}],"name":"supportsInterface","outputs":[{"internalType":"bool","name":"","type":"bool"}],"payable":false,"stateMutability":"view","type":"function"}]`
@@ -119,7 +120,7 @@ function parseData(abi) {
 function decode() {
   clearView();
   try {
-    const abi = JSON.parse(abi_text.value);
+    abi = JSON.parse(abi_text.value);
     parseData(abi);
   } catch (e) {
     console.error(e);
@@ -133,7 +134,7 @@ function clearView() {
 
 async function getPreset() {
   const index = presets.map((x) => x[1]).indexOf(select_preset.value);
-  const abi = (await data[presets[index][0]]()).default;
+  abi = (await data[presets[index][0]]()).default;
 
   try {
     clearView();
@@ -144,7 +145,25 @@ async function getPreset() {
   }
 }
 
-async function interact(input) {
+async function interact(index, fragment, input) {
   console.log(input);
+
+
+  try {
+    const contract = new Contract(contractAddress.value, abi, await provider.getSigner());
+    const result = await contract[fragment.name](...input);
+
+    if (fragment.constant) {
+      parsed_data.value.outputs[index] = { result, type: '' };
+    }
+    else {
+      parsed_data.value.outputs[index] = { result: result.hash, type: '' };
+    }
+  } catch (e) {
+    parsed_data.value.outputs[index] = { result: e.message, type: 'error' }
+  }
+
+
+
 }
 </script>
