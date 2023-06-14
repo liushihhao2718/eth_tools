@@ -22,7 +22,7 @@ function parseInputData(abi, data) {
   const iface = new Interface(abi);
   const parsed = iface.parseTransaction({ data });
   const table = parsed.fragment.inputs.map((x, i) =>
-    Object.assign(pick(x, "name", "type"), { value: parsed.args[i] })
+    Object.assign(pick(x, "name", "type"), { value: parsed.args[i].toString() })
   );
 
   return { table, transDesc: parsed };
