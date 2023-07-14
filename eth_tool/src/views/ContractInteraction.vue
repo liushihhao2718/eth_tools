@@ -19,7 +19,7 @@
       </v-window-item>
 
       <v-window-item value="two">
-        <v-select v-model="select_preset" :items="presets.map((x) => x[1])" label="Pre defined Contracts"></v-select>
+        <v-select v-model="select_preset" :items="presets.map((x) => x.name)" label="Pre defined Contracts"></v-select>
         <v-btn variant="tonal" @click="getPreset()"> Format </v-btn>
       </v-window-item>
     </v-window>
@@ -86,20 +86,20 @@ async function connect() {
 const abi_text = ref(
   `[{"constant":false,"inputs":[{"internalType":"address","name":"to","type":"address"},{"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"approve","outputs":[],"payable":false,"stateMutability":"nonpayable","type":"function"},{"constant":false,"inputs":[{"internalType":"address","name":"to","type":"address"},{"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"mint","outputs":[],"payable":false,"stateMutability":"nonpayable","type":"function"},{"constant":false,"inputs":[{"internalType":"address","name":"from","type":"address"},{"internalType":"address","name":"to","type":"address"},{"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"safeTransferFrom","outputs":[],"payable":false,"stateMutability":"nonpayable","type":"function"},{"constant":false,"inputs":[{"internalType":"address","name":"from","type":"address"},{"internalType":"address","name":"to","type":"address"},{"internalType":"uint256","name":"tokenId","type":"uint256"},{"internalType":"bytes","name":"_data","type":"bytes"}],"name":"safeTransferFrom","outputs":[],"payable":false,"stateMutability":"nonpayable","type":"function"},{"constant":false,"inputs":[{"internalType":"address","name":"to","type":"address"},{"internalType":"bool","name":"approved","type":"bool"}],"name":"setApprovalForAll","outputs":[],"payable":false,"stateMutability":"nonpayable","type":"function"},{"constant":false,"inputs":[{"internalType":"address","name":"from","type":"address"},{"internalType":"address","name":"to","type":"address"},{"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"transferFrom","outputs":[],"payable":false,"stateMutability":"nonpayable","type":"function"},{"inputs":[],"payable":false,"stateMutability":"nonpayable","type":"constructor"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"from","type":"address"},{"indexed":true,"internalType":"address","name":"to","type":"address"},{"indexed":true,"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"Transfer","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"owner","type":"address"},{"indexed":true,"internalType":"address","name":"approved","type":"address"},{"indexed":true,"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"Approval","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"owner","type":"address"},{"indexed":true,"internalType":"address","name":"operator","type":"address"},{"indexed":false,"internalType":"bool","name":"approved","type":"bool"}],"name":"ApprovalForAll","type":"event"},{"constant":true,"inputs":[{"internalType":"address","name":"owner","type":"address"}],"name":"balanceOf","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":true,"inputs":[{"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"getApproved","outputs":[{"internalType":"address","name":"","type":"address"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":true,"inputs":[{"internalType":"address","name":"owner","type":"address"},{"internalType":"address","name":"operator","type":"address"}],"name":"isApprovedForAll","outputs":[{"internalType":"bool","name":"","type":"bool"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":true,"inputs":[{"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"ownerOf","outputs":[{"internalType":"address","name":"","type":"address"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":true,"inputs":[{"internalType":"bytes4","name":"interfaceId","type":"bytes4"}],"name":"supportsInterface","outputs":[{"internalType":"bool","name":"","type":"bool"}],"payable":false,"stateMutability":"view","type":"function"}]`
 );
-const data = import.meta.glob("../preset_contract/*.json");
+const glob_abi = import.meta.glob("../preset_contract/*.json");
 const regex = /\.\.\/preset_contract\/(ERC(\d+))\.json/;
 
 // console.log(Object.keys(data));
 
-const presets = Object.keys(data)
-  .map((path) => regex.exec(path))
-  .sort(function (a, b) {
-    return a[2] - b[2];
-  });
+const presets = Object.keys(glob_abi)
+  .map((path) => {
+    return {
+      path, name: path.replace(/^.*[\\\/]/, '').replace(/\.[^/.]+$/, "")
+    }
+  })
 
 const tab = ref(0);
-// const presets = ref(["ERC20", "ERC721", "ERC1155"]);
-const select_preset = ref(presets[1][1]);
+const select_preset = ref(presets[1].name);
 
 const expanded = ref(false);
 const parsed_data = ref();
@@ -133,8 +133,8 @@ function clearView() {
 }
 
 async function getPreset() {
-  const index = presets.map((x) => x[1]).indexOf(select_preset.value);
-  abi = (await data[presets[index][0]]()).default;
+  const index = presets.map((x) => x.name).indexOf(select_preset.value);
+  abi = (await glob_abi[presets[index].path]()).default;
 
   try {
     clearView();
@@ -146,15 +146,24 @@ async function getPreset() {
 }
 
 async function interact(index, fragment, input) {
-  console.log(input);
-
 
   try {
     const contract = new Contract(contractAddress.value, abi, await provider.getSigner());
+    console.log('fragment.name', fragment.name, ...input)
     const result = await contract[fragment.name](...input);
 
+    console.log(result)
     if (fragment.constant) {
-      parsed_data.value.outputs[index] = { result, type: '' };
+      parsed_data.value.outputs[index] = {
+        result: JSON.stringify(result, (key, value) => {
+          return typeof value === 'bigint'
+            ? value.toString()
+            : value;
+        },
+          2
+
+        ), type: ''
+      };
     }
     else {
       parsed_data.value.outputs[index] = { result: result.hash, type: '' };
